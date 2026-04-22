@@ -1,65 +1,66 @@
-import express from "express";
-import "dotenv/config";
-import cors from "cors";
-import fetch from "node-fetch";
+import express from 'express';
+import 'dotenv/config';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import OpenAI from 'openai';
+import chatRoutes from './routes/chats.js';
 
 const app = express();
 const PORT = 8080;
 
-// Middleware
-app.use(express.json());
-app.use(cors());
+/* =========================
+   ENV VALIDATION
+========================= */
+if (!process.env.GROQ_API_KEY) {
+  throw new Error("❌ GROQ_API_KEY is missing in .env");
+}
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("Server is running 🚀");
+if (!process.env.MONGODB_URI) {
+  throw new Error("❌ MONGODB_URI is missing in .env");
+}
+
+/* =========================
+   GROQ CLIENT SETUP
+========================= */
+const client = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
 });
 
-// Gemini API route
-app.post("/test", async (req, res) => {
+/* =========================
+   MIDDLEWARE
+========================= */
+app.use(cors());
+app.use(express.json());
+app.use("/api", chatRoutes);
+
+/* =========================
+   TEST ROUTE
+========================= */
+app.get('/', (req, res) => {
+  res.send('Server is running 🚀');
+});
+
+/* =========================
+   GROQ CHAT ROUTE
+========================= */
+app.post('/test', async (req, res) => {
   try {
-    const userMessage = req.body.message || "Hello";
+    const userMessage = req.body.message;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: userMessage }],
-            },
-          ],
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    console.log("====== GEMINI RESPONSE ======");
-    console.log(JSON.stringify(data, null, 2));
-    console.log("=============================");
-
-    // Handle API error
-    if (data.error) {
-      return res.status(400).json({ error: data.error.message });
+    if (!userMessage || typeof userMessage !== 'string') {
+      return res.status(400).json({ error: 'Invalid message' });
     }
 
-    // Extract reply safely
-    let reply = "No response";
+    const response = await client.chat.completions.create({
+      model: "openai/gpt-oss-20b",
+      messages: [
+        { role: "system", content: "You are Jarvis, a helpful AI assistant." },
+        { role: "user", content: userMessage },
+      ],
+    });
 
-    if (
-      data &&
-      data.candidates &&
-      Array.isArray(data.candidates) &&
-      data.candidates.length > 0
-    ) {
-      const parts = data.candidates[0].content?.parts || [];
-      reply = parts.map(p => p.text || "").join("");
-    }
+    const reply = response.choices[0].message.content;
 
     res.json({ reply });
 
@@ -69,7 +70,31 @@ app.post("/test", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+/* =========================
+   DATABASE CONNECTION
+========================= */
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("✅ Connected to Database");
+  } catch (err) {
+    console.error("❌ Failed to connect DB:", err);
+    process.exit(1);
+  }
+};
+
+/* =========================
+   START SERVER
+========================= */
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ Server failed to start:", err);
+  }
+};
+
+startServer();
