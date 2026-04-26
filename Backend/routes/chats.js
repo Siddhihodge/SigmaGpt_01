@@ -4,9 +4,7 @@ import getAIResponse from "../utils/openai.js"; // renamed (better naming)
 
 const router = express.Router();
 
-/* =========================
-   TEST ROUTE
-========================= */
+
 router.post("/test", async (req, res) => {
   try {
     const thread = new Thread({
@@ -22,9 +20,7 @@ router.post("/test", async (req, res) => {
   }
 });
 
-/* =========================
-   GET ALL THREADS
-========================= */
+
 router.get("/thread", async (req, res) => {
   try {
     const threads = await Thread.find({}).sort({ updatedAt: -1 });
@@ -35,9 +31,7 @@ router.get("/thread", async (req, res) => {
   }
 });
 
-/* =========================
-   GET SINGLE THREAD
-========================= */
+
 router.get("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
@@ -55,9 +49,7 @@ router.get("/thread/:threadId", async (req, res) => {
   }
 });
 
-/* =========================
-   DELETE THREAD
-========================= */
+
 router.delete("/thread/:threadId", async (req, res) => {
   const { threadId } = req.params;
 
@@ -75,9 +67,7 @@ router.delete("/thread/:threadId", async (req, res) => {
   }
 });
 
-/* =========================
-   CHAT ROUTE (MAIN LOGIC)
-========================= */
+
 router.post("/chat", async (req, res) => {
   const { threadId, message } = req.body;
 
@@ -103,9 +93,7 @@ router.post("/chat", async (req, res) => {
       content: message,
     });
 
-    /* =========================
-       🔥 GROQ AI CALL
-    ========================= */
+   
     const assistantReply = await getAIResponse(message);
 
     // Add AI response
